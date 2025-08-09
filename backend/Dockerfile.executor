@@ -1,0 +1,24 @@
+FROM node:18-alpine
+
+WORKDIR /sandbox
+
+# Install Python for multi-language support
+RUN apk add --no-cache python3 py3-pip
+
+# Create minimal execution environment
+RUN addgroup -g 1001 -S executor
+RUN adduser -S executor -u 1001
+
+# Copy only execution scripts
+COPY src/services/codeExecutor.js ./
+COPY package.json ./
+
+# Install minimal dependencies
+RUN npm install --only=production
+
+# Security hardening
+RUN chown -R executor:executor /sandbox
+USER executor
+
+# No exposed ports for security
+CMD ["node", "codeExecutor.js"]
