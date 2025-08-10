@@ -37,7 +37,10 @@ const authorizeRole = (roles) => {
 
     // Check if user role is in allowed roles
     const userRole = req.user.role || 'candidate';
+    console.log('Authorization check - User role:', userRole, 'Required roles:', roles);
+    
     if (!roles.includes(userRole)) {
+      console.log('Access denied - User role not in allowed roles');
       return res.status(403).json({ message: 'Insufficient permissions' });
     }
 

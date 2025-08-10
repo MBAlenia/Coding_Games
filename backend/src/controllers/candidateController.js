@@ -74,7 +74,17 @@ exports.createCandidate = async (req, res) => {
       return res.status(400).json({ message: 'This email is already in use' });
     }
     
-    // Insert new candidate without password - they'll set it on first login
+    // Generate a temporary token for first login
+    const crypto = require('crypto');
+    const invitationToken = crypto.randomBytes(32).toString('hex');
+    const tokenExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+    
+    // Generate a temporary password hash (user will set their real password on first login)
+    const bcrypt = require('bcrypt');
+    const tempPassword = crypto.randomBytes(16).toString('hex');
+    const tempPasswordHash = await bcrypt.hash(tempPassword, 10);
+    
+    // Insert new candidate with temporary password - they'll set it on first login
     const [result] = await db.execute(`
       INSERT INTO users (
         email, 
@@ -85,18 +95,24 @@ exports.createCandidate = async (req, res) => {
         role,
         status, 
         first_login,
+        invitation_token,
+        invitation_token_expiry,
         created_at
-      ) VALUES (?, ?, ?, NULL, ?, 'candidate', 'active', 1, NOW())
+      ) VALUES (?, ?, ?, ?, ?, 'candidate', 'active', 1, ?, ?, NOW())
     `, [
       email, 
       first_name, 
       last_name, 
-      username || email // Use email as username if not provided
+      tempPasswordHash,
+      username || email, // Use email as username if not provided
+      invitationToken,
+      tokenExpiry
     ]);
     
     res.status(201).json({
       id: result.insertId,
       message: 'Candidate created successfully'
+      // Note: No email sent here - emails are only sent when sending assessment invitations
     });
   } catch (error) {
     console.error('Error creating candidate:', error);
@@ -277,6 +293,92 @@ exports.addCandidateHistory = async (req, res) => {
   } catch (error) {
     console.error('Error adding candidate history:', error);
     res.status(500).json({ message: 'Erreur lors de l\'ajout de l\'historique' });
+  }
+};
+
+// Get invitations for the logged-in candidate
+exports.getMyInvitations = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Get all invitations for this candidate
+    const [invitations] = await db.execute(`
+      SELECT 
+        ci.id,
+        ci.assessment_id,
+        ci.status,
+        ci.invited_at,
+        ci.expires_at,
+        ci.completed_at,
+        a.title as assessment_title,
+        a.description,
+        a.duration,
+        a.language,
+        a.difficulty,
+        a.total_points,
+        (SELECT COUNT(*) FROM questions WHERE assessment_id = a.id) as question_count
+      FROM candidate_invitations ci
+      JOIN assessments a ON ci.assessment_id = a.id
+      WHERE ci.candidate_id = ?
+      ORDER BY ci.invited_at DESC
+    `, [userId]);
+    
+    res.json(invitations);
+  } catch (error) {
+    console.error('Error fetching candidate invitations:', error);
+    res.status(500).json({ message: 'Error fetching invitations' });
+  }
+};
+
+// Get submissions for the logged-in candidate
+exports.getMySubmissions = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Get all submissions for this candidate
+    const [submissions] = await db.execute(`
+      SELECT 
+        s.id,
+        s.question_id,
+        s.code,
+        s.status,
+        s.score,
+        s.execution_time,
+        s.memory_used,
+        s.error_message,
+        s.submitted_at,
+        s.executed_at,
+        q.title as question_title,
+        q.language,
+        q.difficulty,
+        q.points,
+        a.id as assessment_id,
+        a.title as assessment_title
+      FROM submissions s
+      JOIN questions q ON s.question_id = q.id
+      JOIN assessments a ON q.assessment_id = a.id
+      WHERE s.user_id = ?
+      ORDER BY s.submitted_at DESC
+    `, [userId]);
+    
+    // Group submissions by assessment
+    const assessmentMap = {};
+    submissions.forEach(submission => {
+      if (!assessmentMap[submission.assessment_id]) {
+        assessmentMap[submission.assessment_id] = {
+          assessment_id: submission.assessment_id,
+          assessment_title: submission.assessment_title,
+          submissions: []
+        };
+      }
+      assessmentMap[submission.assessment_id].submissions.push(submission);
+    });
+    
+    const result = Object.values(assessmentMap);
+    res.json(result);
+  } catch (error) {
+    console.error('Error fetching candidate submissions:', error);
+    res.status(500).json({ message: 'Error fetching submissions' });
   }
 };
 

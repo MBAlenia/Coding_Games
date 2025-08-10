@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Clock, Play, Save, Send, AlertTriangle, ChevronLeft, ChevronRight, CheckCircle, XCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
-import api from '../services/api';
+import { apiService } from '../services/api';
 import NotificationSystem, { NotificationBell } from './NotificationSystem';
 import CodeEditor from './CodeEditor';
 
@@ -53,8 +53,8 @@ const TakeAssessment = () => {
 
   const fetchAssessmentData = async () => {
     try {
-      // Get assessment details
-      const assessmentResponse = await api.get(`/assessments/${assessmentId}`);
+      // Get assessment details via candidate route
+      const assessmentResponse = await apiService.get(`/api/candidate-portal/assessment/${assessmentId}`);
       const assessmentData = assessmentResponse.data;
       
       setAssessment(assessmentData);

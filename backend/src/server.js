@@ -51,17 +51,7 @@ const invitationRoutes = require('./routes/invitations');
 const candidateRoutes = require('./routes/candidates');
 const candidateInvitationRoutes = require('./routes/candidateInvitationRoutes');
 
-// API routes
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/assessments', assessmentRoutes);
-app.use('/api/questions', questionRoutes);
-app.use('/api/submissions', submissionRoutes);
-app.use('/api', invitationRoutes);
-app.use('/api', candidateRoutes);
-app.use('/api/candidates', candidateInvitationRoutes);
-
-// Route de santé
+// Route de santé (MUST be before authenticated routes)
 app.get('/api/health', (req, res) => {
   res.status(200).json({ 
     status: 'UP',
@@ -69,6 +59,18 @@ app.get('/api/health', (req, res) => {
     version: '1.0.0'
   });
 });
+
+// API routes
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/assessments', assessmentRoutes);
+app.use('/api/questions', questionRoutes);
+app.use('/api/submissions', submissionRoutes);
+// Mount candidate routes for recruiters
+app.use('/api/candidates', candidateRoutes);
+// Mount candidateInvitationRoutes for candidate self-access on different path  
+app.use('/api/candidate-portal', candidateInvitationRoutes);
+app.use('/api', invitationRoutes);
 
 // Gérer les erreurs 404
 app.use((req, res, next) => {

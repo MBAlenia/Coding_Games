@@ -179,15 +179,6 @@ function App() {
             />
             
             <Route 
-              path="/recruiter-dashboard" 
-              element={
-                <ProtectedRoute>
-                  <RecruiterDashboard />
-                </ProtectedRoute>
-              } 
-            />
-            
-            <Route 
               path="/candidate/:candidateId" 
               element={
                 <ProtectedRoute>
@@ -250,11 +241,19 @@ function App() {
               } 
             />
             
-            {/* Default redirect */}
-            <Route path="/" element={<Navigate to="/recruiter-dashboard" />} />
+            {/* Default redirect - role based */}
+            <Route path="/" element={
+              <ProtectedRoute>
+                <RoleBasedRedirect />
+              </ProtectedRoute>
+            } />
             
-            {/* Catch all route */}
-            <Route path="*" element={<Navigate to="/recruiter-dashboard" />} />
+            {/* Catch all route - role based */}
+            <Route path="*" element={
+              <ProtectedRoute>
+                <RoleBasedRedirect />
+              </ProtectedRoute>
+            } />
           </Routes>
           
           {/* Toast notifications */}

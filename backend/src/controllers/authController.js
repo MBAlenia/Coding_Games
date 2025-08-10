@@ -106,6 +106,12 @@ const getProfile = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    console.log('Profile data for user:', user.email, {
+      first_login: user.first_login,
+      password_set: !!user.password_hash,
+      first_login_type: typeof user.first_login
+    });
+
     res.json({
       user: {
         id: user.id,
@@ -113,7 +119,9 @@ const getProfile = async (req, res) => {
         email: user.email,
         role: user.role,
         created_at: user.created_at
-      }
+      },
+      first_login: user.first_login === 1 || user.first_login === true,
+      password_set: !!user.password_hash
     });
   } catch (error) {
     console.error('Get profile error:', error);

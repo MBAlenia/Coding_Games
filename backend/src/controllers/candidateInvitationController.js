@@ -5,18 +5,16 @@ const bcrypt = require('bcrypt');
 // Get candidate's invitations (assessments assigned to them)
 exports.getCandidateInvitations = async (req, res) => {
   try {
-    const candidateId = req.user.id;
+    const candidateEmail = req.user.email;
 
     const [invitations] = await db.execute(`
       SELECT 
         i.id,
         i.assessment_id,
         i.status,
-        i.invited_at,
+        i.created_at as invited_at,
         i.accepted_at,
-        i.completed_at,
         i.expires_at,
-        i.score,
         a.title,
         a.description,
         a.duration,
@@ -27,8 +25,8 @@ exports.getCandidateInvitations = async (req, res) => {
         u.last_name as invited_by_lastname
       FROM invitations i
       JOIN assessments a ON i.assessment_id = a.id
-      JOIN users u ON i.invited_by = u.id
-      WHERE i.candidate_id = ?
+      JOIN users u ON i.created_by = u.id
+      WHERE i.candidate_email = ?
       ORDER BY 
         CASE 
           WHEN i.status = 'pending' THEN 1
@@ -36,8 +34,8 @@ exports.getCandidateInvitations = async (req, res) => {
           WHEN i.status = 'completed' THEN 3
           ELSE 4
         END,
-        i.invited_at DESC
-    `, [candidateId]);
+        i.created_at DESC
+    `, [candidateEmail]);
 
     res.json({ invitations });
   } catch (error) {
@@ -46,27 +44,13 @@ exports.getCandidateInvitations = async (req, res) => {
   }
 };
 
-// Get candidate's test submissions
+// Get candidate submissions
 exports.getCandidateSubmissions = async (req, res) => {
   try {
     const candidateId = req.user.id;
-
+    
     const [submissions] = await db.execute(`
-      SELECT 
-        s.id,
-        s.code,
-        s.score,
-        s.status,
-        s.execution_time,
-        s.memory_used,
-        s.error_message,
-        s.submitted_at,
-        s.executed_at,
-        q.title as question_title,
-        q.language,
-        q.difficulty,
-        q.points,
-        a.title as assessment_title
+      SELECT s.*, q.title as question_title, a.title as assessment_title, a.language
       FROM submissions s
       JOIN questions q ON s.question_id = q.id
       JOIN assessments a ON q.assessment_id = a.id
@@ -74,10 +58,87 @@ exports.getCandidateSubmissions = async (req, res) => {
       ORDER BY s.submitted_at DESC
     `, [candidateId]);
 
-    res.json({ submissions });
+    res.json({
+      success: true,
+      submissions: submissions
+    });
   } catch (error) {
     console.error('Get candidate submissions error:', error);
-    res.status(500).json({ message: 'Erreur lors de la récupération des soumissions' });
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// Get assessment details for candidate (simplified - no complex checks)
+exports.getCandidateAssessment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Get assessment details with questions - simplified access
+    const [assessments] = await db.execute(
+      `SELECT a.*, u.username as created_by_name 
+       FROM assessments a 
+       JOIN users u ON a.created_by = u.id 
+       WHERE a.id = ?`,
+      [id]
+    );
+
+    if (assessments.length === 0) {
+      return res.status(404).json({ message: 'Assessment not found' });
+    }
+
+    const assessment = assessments[0];
+
+    // Get questions for this assessment
+    const [questions] = await db.execute(
+      'SELECT * FROM questions WHERE assessment_id = ? ORDER BY created_at ASC',
+      [id]
+    );
+
+    assessment.questions = questions;
+
+    res.json(assessment);
+  } catch (error) {
+    console.error('Get candidate assessment error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// Start test session - mark invitation as accepted
+exports.startTestSession = async (req, res) => {
+  try {
+    const { assessmentId } = req.params;
+    const candidateEmail = req.user.email;
+    
+    // Check if invitation exists and is pending
+    const [invitations] = await db.execute(
+      'SELECT * FROM invitations WHERE assessment_id = ? AND candidate_email = ?',
+      [assessmentId, candidateEmail]
+    );
+
+    if (invitations.length === 0) {
+      return res.status(404).json({ message: 'Invitation not found' });
+    }
+
+    const invitation = invitations[0];
+    
+    if (invitation.status === 'accepted') {
+      return res.status(400).json({ message: 'Test already started' });
+    }
+
+    if (invitation.status === 'expired') {
+      return res.status(400).json({ message: 'Invitation has expired' });
+    }
+
+    // Mark invitation as accepted
+    await db.execute(
+      'UPDATE invitations SET status = ?, accepted_at = NOW() WHERE id = ?',
+      ['accepted', invitation.id]
+    );
+
+    res.json({ message: 'Test session started successfully' });
+  } catch (error) {
+    console.error('Start test session error:', error);
+    res.status(500).json({ message: 'Internal server error' });
   }
 };
 
@@ -99,7 +160,7 @@ exports.setPassword = async (req, res) => {
     // Update user password and flags
     await db.execute(`
       UPDATE users 
-      SET password = ?, first_login = FALSE, password_set = TRUE 
+      SET password_hash = ?, first_login = 0 
       WHERE id = ?
     `, [hashedPassword, candidateId]);
 
@@ -118,6 +179,7 @@ exports.startTestSession = async (req, res) => {
   try {
     const { assessmentId } = req.body;
     const candidateId = req.user.id;
+    const candidateEmail = req.user.email;
 
     // Check if there's already an active session for this assessment
     const [existingSessions] = await db.execute(`
@@ -136,9 +198,9 @@ exports.startTestSession = async (req, res) => {
     const [invitations] = await db.execute(`
       SELECT id, status 
       FROM invitations 
-      WHERE candidate_id = ? AND assessment_id = ? 
+      WHERE candidate_email = ? AND assessment_id = ? 
       AND (status = 'pending' OR status = 'accepted')
-    `, [candidateId, assessmentId]);
+    `, [candidateEmail, assessmentId]);
 
     if (invitations.length === 0) {
       return res.status(403).json({ 
@@ -205,9 +267,9 @@ exports.endTestSession = async (req, res) => {
     // Update invitation status to completed
     await db.execute(`
       UPDATE invitations 
-      SET status = 'completed', completed_at = NOW() 
-      WHERE candidate_id = ? AND assessment_id = ?
-    `, [candidateId, sessions[0].assessment_id]);
+      SET status = 'completed', accepted_at = NOW() 
+      WHERE candidate_email = ? AND assessment_id = ?
+    `, [req.user.email, sessions[0].assessment_id]);
 
     res.json({
       success: true,
@@ -276,11 +338,29 @@ exports.createInvitations = async (req, res) => {
 
     for (const candidateId of candidateIds) {
       try {
+        // Get candidate email and name
+        const [candidates] = await db.execute(`
+          SELECT email, CONCAT(first_name, ' ', last_name) as name 
+          FROM users 
+          WHERE id = ?
+        `, [candidateId]);
+
+        if (candidates.length === 0) {
+          errors.push({ 
+            candidateId, 
+            error: 'Candidat introuvable' 
+          });
+          continue;
+        }
+
+        const candidateEmail = candidates[0].email;
+        const candidateName = candidates[0].name;
+
         // Check if invitation already exists
         const [existing] = await db.execute(`
           SELECT id FROM invitations 
-          WHERE candidate_id = ? AND assessment_id = ?
-        `, [candidateId, assessmentId]);
+          WHERE candidate_email = ? AND assessment_id = ?
+        `, [candidateEmail, assessmentId]);
 
         if (existing.length > 0) {
           errors.push({ 
@@ -290,16 +370,21 @@ exports.createInvitations = async (req, res) => {
           continue;
         }
 
+        // Generate unique token for invitation
+        const token = crypto.randomBytes(32).toString('hex');
+
         // Create invitation
         const [result] = await db.execute(`
           INSERT INTO invitations (
-            candidate_id, 
-            assessment_id, 
-            invited_by, 
+            assessment_id,
+            candidate_email,
+            candidate_name,
+            token,
             status,
-            expires_at
-          ) VALUES (?, ?, ?, 'pending', DATE_ADD(NOW(), INTERVAL 30 DAY))
-        `, [candidateId, assessmentId, invitedBy]);
+            expires_at,
+            created_by
+          ) VALUES (?, ?, ?, ?, 'pending', DATE_ADD(NOW(), INTERVAL 30 DAY), ?)
+        `, [assessmentId, candidateEmail, candidateName, token, invitedBy]);
 
         results.push({
           candidateId,

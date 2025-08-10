@@ -86,7 +86,7 @@ export const api = {
 
   // Dashboard endpoints
   dashboard: {
-    getStats: () => axios.get('/api/dashboard/stats')
+    getStats: () => axios.get('/api/candidates/dashboard/stats')
   }
 };
 

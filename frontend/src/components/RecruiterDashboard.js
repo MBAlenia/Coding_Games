@@ -458,50 +458,88 @@ const CandidatesTab = ({
         </div>
       </div>
 
-      {/* Candidates List */}
-      <div className="grid gap-4">
+      {/* Candidates Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {candidates.map((candidate) => (
-          <div key={candidate.id} className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                  <Users className="w-6 h-6 text-blue-600" />
+          <div key={candidate.id} className="bg-white rounded-xl shadow-sm hover:shadow-lg transition-all duration-200 border border-gray-100 overflow-hidden">
+            {/* Card Header with gradient */}
+            <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-4">
+              <div className="flex items-center justify-between">
+                <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-md">
+                  <span className="text-xl font-bold text-blue-600">
+                    {candidate.first_name?.charAt(0)}{candidate.last_name?.charAt(0)}
+                  </span>
                 </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900">
-                    {candidate.first_name} {candidate.last_name}
-                  </h3>
-                  <p className="text-sm text-gray-600">{candidate.email}</p>
-                  <div className="flex items-center space-x-2 mt-1">
-                    {getStatusBadge(candidate.status)}
-                    <span className="text-xs text-gray-500">
-                      Joined {new Date(candidate.created_at).toLocaleDateString()}
-                    </span>
-                  </div>
+                {getStatusBadge(candidate.status)}
+              </div>
+            </div>
+            
+            {/* Card Body */}
+            <div className="p-4">
+              <h3 className="font-bold text-lg text-gray-900 mb-1">
+                {candidate.first_name} {candidate.last_name}
+              </h3>
+              <p className="text-sm text-gray-600 mb-3 truncate" title={candidate.email}>
+                {candidate.email}
+              </p>
+              
+              {/* Info Grid */}
+              <div className="space-y-2 mb-4">
+                <div className="flex items-center text-xs text-gray-500">
+                  <Calendar className="w-3 h-3 mr-2" />
+                  <span>Joined {new Date(candidate.created_at).toLocaleDateString()}</span>
+                </div>
+                <div className="flex items-center text-xs text-gray-500">
+                  <Clock className="w-3 h-3 mr-2" />
+                  <span>Last active: {candidate.last_login ? new Date(candidate.last_login).toLocaleDateString() : 'Never'}</span>
+                </div>
+                <div className="flex items-center text-xs text-gray-500">
+                  <Award className="w-3 h-3 mr-2" />
+                  <span>Tests taken: {candidate.tests_taken || 0}</span>
                 </div>
               </div>
               
-              <div className="flex items-center space-x-2">
+              {/* Progress Bar for completion rate */}
+              {candidate.completion_rate !== undefined && (
+                <div className="mb-4">
+                  <div className="flex justify-between text-xs text-gray-600 mb-1">
+                    <span>Completion Rate</span>
+                    <span>{candidate.completion_rate || 0}%</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-gradient-to-r from-blue-400 to-blue-600 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${candidate.completion_rate || 0}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+              
+              {/* Action Buttons */}
+              <div className="flex justify-between pt-3 border-t border-gray-100">
                 <button
                   onClick={() => onViewCandidate(candidate)}
-                  className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
+                  className="flex items-center px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                   title="View Details"
                 >
-                  <Eye className="w-4 h-4" />
+                  <Eye className="w-3 h-3 mr-1" />
+                  View
                 </button>
                 <button
                   onClick={() => onSendInvitation(candidate)}
-                  className="p-2 text-green-600 hover:bg-green-100 rounded-lg transition-colors"
+                  className="flex items-center px-3 py-1.5 text-xs font-medium text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                   title="Send Invitation"
                 >
-                  <Send className="w-4 h-4" />
+                  <Send className="w-3 h-3 mr-1" />
+                  Invite
                 </button>
                 <button
                   onClick={() => onDeleteCandidate(candidate.id)}
-                  className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
+                  className="flex items-center px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                   title="Delete"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="w-3 h-3 mr-1" />
+                  Delete
                 </button>
               </div>
             </div>

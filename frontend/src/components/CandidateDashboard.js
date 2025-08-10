@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import api from '../services/api';
+import api, { apiService } from '../services/api';
 import toast from 'react-hot-toast';
 import { 
   Clock, 
@@ -23,55 +23,26 @@ const CandidateDashboard = () => {
   const [assessments, setAssessments] = useState([]);
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTests, setActiveTests] = useState({});
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [passwordForm, setPasswordForm] = useState({
-    newPassword: '',
-    confirmPassword: ''
-  });
+  // Password modal removed - handled at login
+  // activeTests logic removed - simplified workflow
 
   useEffect(() => {
-    checkFirstLogin();
+    // checkFirstLogin removed - password handled at login
     fetchCandidateData();
-    
-    // Load active tests from localStorage
-    const storedActiveTests = localStorage.getItem('activeTests');
-    if (storedActiveTests) {
-      setActiveTests(JSON.parse(storedActiveTests));
-    }
-
-    // Listen for storage events (cross-tab communication)
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
-  const handleStorageChange = (e) => {
-    if (e.key === 'activeTests') {
-      setActiveTests(JSON.parse(e.newValue || '{}'));
-    }
-  };
-
-  const checkFirstLogin = async () => {
-    try {
-      const response = await api.get('/auth/profile');
-      if (response.data.first_login || !response.data.password_set) {
-        setShowPasswordModal(true);
-      }
-    } catch (error) {
-      console.error('Error checking first login:', error);
-    }
-  };
+  // checkFirstLogin function removed - password handled at login
 
   const fetchCandidateData = async () => {
     try {
       setLoading(true);
       
       // Fetch candidate's assigned assessments
-      const invitationsRes = await api.get('/candidates/my-invitations');
-      const submissionsRes = await api.get('/candidates/my-submissions');
+      const invitationsRes = await apiService.get('/api/candidate-portal/my-invitations');
+      const submissionsRes = await apiService.get('/api/candidate-portal/my-submissions');
       
-      setAssessments(invitationsRes.data || []);
-      setSubmissions(submissionsRes.data || []);
+      setAssessments(invitationsRes.data?.invitations || []);
+      setSubmissions(submissionsRes.data?.submissions || []);
     } catch (error) {
       console.error('Error fetching candidate data:', error);
       toast.error('Error loading dashboard data');
@@ -80,55 +51,30 @@ const CandidateDashboard = () => {
     }
   };
 
-  const handleSetPassword = async (e) => {
+  // handleSetPassword function removed - password handled at login
+
+  const startTest = async (e, assessmentId) => {
     e.preventDefault();
+    e.stopPropagation();
     
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      toast.error('Passwords do not match');
-      return;
-    }
-
-    if (passwordForm.newPassword.length < 8) {
-      toast.error('Password must be at least 8 characters');
-      return;
-    }
-
     try {
-      await api.post('/auth/set-password', {
-        password: passwordForm.newPassword
-      });
+      // Mark test as started in backend
+      await apiService.post(`/api/candidate-portal/start-test/${assessmentId}`);
       
-      toast.success('Password set successfully!');
-      setShowPasswordModal(false);
-      setPasswordForm({ newPassword: '', confirmPassword: '' });
+      // Refresh data to update button state
+      await fetchCandidateData();
+      
+      console.log('Starting test for assessment:', assessmentId);
+      // Navigate to the correct route for taking assessment
+      navigate(`/take-assessment/${assessmentId}`);
     } catch (error) {
-      toast.error('Error setting password');
-    }
-  };
-
-  const startTest = (assessmentId) => {
-    // Check if test is already active in any tab
-    const currentActiveTests = JSON.parse(localStorage.getItem('activeTests') || '{}');
-    
-    if (currentActiveTests[assessmentId]) {
-      toast.error('This test is already open in another tab or window');
-      return;
-    }
-
-    // Mark test as active
-    const newActiveTests = {
-      ...currentActiveTests,
-      [assessmentId]: {
-        startedAt: new Date().toISOString(),
-        userId: user.id
+      console.error('Error starting test:', error);
+      if (error.response?.status === 400) {
+        toast.error('Test already started or expired');
+      } else {
+        toast.error('Failed to start test');
       }
-    };
-
-    localStorage.setItem('activeTests', JSON.stringify(newActiveTests));
-    setActiveTests(newActiveTests);
-
-    // Navigate to test
-    navigate(`/test/${assessmentId}`);
+    }
   };
 
   const endTest = (assessmentId) => {
@@ -146,16 +92,17 @@ const CandidateDashboard = () => {
       return 'completed';
     }
     
-    // Check if test is in progress
-    if (activeTests[assessment.id]) {
-      return 'in_progress';
-    }
-    
     // Check if test is expired
     if (assessment.expires_at && new Date(assessment.expires_at) < new Date()) {
       return 'expired';
     }
     
+    // Check if invitation is accepted (test started)
+    if (assessment.status === 'accepted') {
+      return 'started';
+    }
+    
+    // Default to pending
     return 'pending';
   };
 
@@ -166,10 +113,10 @@ const CandidateDashboard = () => {
         icon: CheckCircle,
         text: 'Completed'
       },
-      in_progress: { 
-        color: 'bg-blue-100 text-blue-800', 
-        icon: PlayCircle,
-        text: 'In Progress'
+      started: { 
+        color: 'bg-gray-100 text-gray-800', 
+        icon: Lock,
+        text: 'Started'
       },
       pending: { 
         color: 'bg-yellow-100 text-yellow-800', 
@@ -322,7 +269,6 @@ const CandidateDashboard = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {assessments.map((assessment) => {
                   const status = getTestStatus(assessment);
-                  const isActive = activeTests[assessment.id];
                   
                   return (
                     <div 
@@ -359,25 +305,18 @@ const CandidateDashboard = () => {
                       
                       {status === 'pending' && (
                         <button
-                          onClick={() => startTest(assessment.id)}
-                          disabled={isActive}
-                          className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
-                            isActive
-                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                              : 'bg-blue-600 text-white hover:bg-blue-700'
-                          }`}
+                          type="button"
+                          onClick={(e) => startTest(e, assessment.id)}
+                          className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
                         >
-                          {isActive ? 'Test in Progress' : 'Start Test'}
+                          Start Test
                         </button>
                       )}
                       
-                      {status === 'in_progress' && (
-                        <button
-                          onClick={() => navigate(`/test/${assessment.id}`)}
-                          className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
-                        >
-                          Continue Test
-                        </button>
+                      {status === 'started' && (
+                        <div className="w-full py-2 px-4 bg-gray-300 text-gray-600 rounded-lg text-center font-medium cursor-not-allowed">
+                          Test Already Started
+                        </div>
                       )}
                       
                       {status === 'completed' && (
@@ -403,58 +342,7 @@ const CandidateDashboard = () => {
         </div>
       </main>
 
-      {/* Password Setup Modal */}
-      {showPasswordModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <div className="flex items-center mb-4">
-              <Lock className="w-6 h-6 text-blue-600 mr-2" />
-              <h2 className="text-xl font-semibold">Set Your Password</h2>
-            </div>
-            
-            <p className="text-gray-600 mb-6">
-              Welcome! Please set a password for your account to continue.
-            </p>
-            
-            <form onSubmit={handleSetPassword}>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  New Password
-                </label>
-                <input
-                  type="password"
-                  value={passwordForm.newPassword}
-                  onChange={(e) => setPasswordForm({...passwordForm, newPassword: e.target.value})}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                  required
-                  minLength={8}
-                />
-              </div>
-              
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Confirm Password
-                </label>
-                <input
-                  type="password"
-                  value={passwordForm.confirmPassword}
-                  onChange={(e) => setPasswordForm({...passwordForm, confirmPassword: e.target.value})}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                  required
-                  minLength={8}
-                />
-              </div>
-              
-              <button
-                type="submit"
-                className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
-              >
-                Set Password
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Password modal removed - handled at login */}
     </div>
   );
 };
