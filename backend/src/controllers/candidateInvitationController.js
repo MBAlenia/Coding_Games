@@ -264,12 +264,34 @@ exports.endTestSession = async (req, res) => {
       WHERE id = ?
     `, [sessionId]);
 
-    // Update invitation status to completed
+    // Calculate final assessment score and update invitation
+    const assessmentId = sessions[0].assessment_id;
+    console.log('=== FINALISATION ASSESSMENT ===');
+    console.log('Assessment ID:', assessmentId);
+    console.log('Email candidat:', req.user.email);
+    
+    // Calculate final score from all submissions
+    const [scoreResult] = await db.execute(`
+      SELECT 
+        AVG((s.score / q.max_score) * 100) as average_percentage
+      FROM submissions s
+      JOIN questions q ON s.question_id = q.id
+      JOIN assessment_questions aq ON aq.question_id = q.id
+      WHERE s.user_id = ? AND aq.assessment_id = ? AND s.status = 'completed'
+    `, [candidateId, assessmentId]);
+    
+    const finalScore = scoreResult[0].average_percentage || 0;
+    console.log('Score final calculé:', finalScore);
+    
+    // Update invitation status to completed with final score
     await db.execute(`
       UPDATE invitations 
-      SET status = 'completed', accepted_at = NOW() 
+      SET status = 'completed', accepted_at = NOW(), score = ?
       WHERE candidate_email = ? AND assessment_id = ?
-    `, [req.user.email, sessions[0].assessment_id]);
+    `, [Math.round(finalScore * 100) / 100, req.user.email, assessmentId]);
+    
+    console.log('Invitation mise à jour avec score:', Math.round(finalScore * 100) / 100);
+    console.log('=== FIN FINALISATION ===\n');
 
     res.json({
       success: true,

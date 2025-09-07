@@ -39,6 +39,8 @@ const Login = () => {
           // Navigate based on user role
           if (result.user?.role === 'candidate') {
             navigate('/candidate-dashboard');
+          } else if (result.user?.role === 'admin') {
+            navigate('/admin-dashboard');
           } else {
             navigate('/recruiter-dashboard');
           }

@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiService } from '../services/api';
 import toast from 'react-hot-toast';
+import QuestionLibrary from './QuestionLibrary';
 
 const AddQuestions = () => {
   const { assessmentId } = useParams();
@@ -11,12 +12,16 @@ const AddQuestions = () => {
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showQuestionForm, setShowQuestionForm] = useState(false);
+  const [showQuestionLibrary, setShowQuestionLibrary] = useState(false);
+  const [selectedLibraryQuestions, setSelectedLibraryQuestions] = useState([]);
   const [questionForm, setQuestionForm] = useState({
     title: '',
     description: '',
     language: 'javascript',
-    template_code: '',
-    test_cases: ''
+    technology: '',
+    difficulty: 'intermediate',
+    tags: [],
+    template_code: ''
   });
 
   useEffect(() => {
@@ -45,8 +50,10 @@ const AddQuestions = () => {
         title: '',
         description: '',
         language: 'javascript',
-        template_code: '',
-        test_cases: ''
+        technology: '',
+        difficulty: 'intermediate',
+        tags: [],
+        template_code: ''
       });
       setShowQuestionForm(false);
       toast.success('Question added successfully!');
@@ -68,6 +75,30 @@ const AddQuestions = () => {
     } catch (error) {
       toast.error('Failed to delete question');
       console.error('Error deleting question:', error);
+    }
+  };
+
+  const handleAddSelectedQuestions = async () => {
+    if (selectedLibraryQuestions.length === 0) {
+      toast.error('Please select at least one question');
+      return;
+    }
+
+    try {
+      const questionIds = selectedLibraryQuestions.map(q => q.id);
+      await apiService.post('/api/question-library/add-to-assessment', {
+        assessmentId: assessmentId,
+        questionIds: questionIds
+      });
+      
+      // Refresh assessment data to show new questions
+      await fetchAssessment();
+      setShowQuestionLibrary(false);
+      setSelectedLibraryQuestions([]);
+      toast.success(`${selectedLibraryQuestions.length} question(s) added successfully!`);
+    } catch (error) {
+      toast.error('Failed to add questions to assessment');
+      console.error('Error adding questions:', error);
     }
   };
 
@@ -112,12 +143,20 @@ const AddQuestions = () => {
 
         <div className="mb-6 flex justify-between items-center">
           <h2 className="text-xl font-bold text-gray-900">Questions</h2>
-          <button
-            onClick={() => setShowQuestionForm(true)}
-            className="bg-indigo-600 text-white px-6 py-2 rounded-md hover:bg-indigo-700"
-          >
-            Add Question
-          </button>
+          <div className="space-x-2">
+            <button
+              onClick={() => setShowQuestionLibrary(true)}
+              className="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700"
+            >
+              Add from Library
+            </button>
+            <button
+              onClick={() => setShowQuestionForm(true)}
+              className="bg-indigo-600 text-white px-6 py-2 rounded-md hover:bg-indigo-700"
+            >
+              Create New Question
+            </button>
+          </div>
         </div>
 
         {showQuestionForm && (
@@ -148,7 +187,7 @@ const AddQuestions = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Programming Language</label>
                   <select
@@ -158,8 +197,32 @@ const AddQuestions = () => {
                   >
                     <option value="javascript">JavaScript</option>
                     <option value="python">Python</option>
-                    <option value="java">Java</option>
                     <option value="sql">SQL</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Technology</label>
+                  <input
+                    type="text"
+                    value={questionForm.technology}
+                    onChange={(e) => setQuestionForm({...questionForm, technology: e.target.value})}
+                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                    placeholder="e.g., React, Node.js, MySQL"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Difficulty</label>
+                  <select
+                    value={questionForm.difficulty}
+                    onChange={(e) => setQuestionForm({...questionForm, difficulty: e.target.value})}
+                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                  >
+                    <option value="beginner">Beginner</option>
+                    <option value="intermediate">Intermediate</option>
+                    <option value="advanced">Advanced</option>
+                    <option value="expert">Expert</option>
                   </select>
                 </div>
               </div>
@@ -175,16 +238,6 @@ const AddQuestions = () => {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Test Cases (JSON format)</label>
-                <textarea
-                  rows={4}
-                  value={questionForm.test_cases}
-                  onChange={(e) => setQuestionForm({...questionForm, test_cases: e.target.value})}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm"
-                  placeholder='[{"input": "hello", "expected": "olleh"}, {"input": "world", "expected": "dlrow"}]'
-                />
-              </div>
 
               <div className="flex space-x-2">
                 <button
@@ -205,17 +258,55 @@ const AddQuestions = () => {
           </div>
         )}
 
+        {showQuestionLibrary && (
+          <div className="bg-white shadow rounded-lg p-6 mb-8">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold">Select Questions from Library</h3>
+              <div className="space-x-2">
+                <button
+                  onClick={handleAddSelectedQuestions}
+                  disabled={selectedLibraryQuestions.length === 0}
+                  className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  Add Selected ({selectedLibraryQuestions.length})
+                </button>
+                <button
+                  onClick={() => {
+                    setShowQuestionLibrary(false);
+                    setSelectedLibraryQuestions([]);
+                  }}
+                  className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+            <QuestionLibrary
+              onSelectQuestions={setSelectedLibraryQuestions}
+              selectedQuestions={selectedLibraryQuestions}
+            />
+          </div>
+        )}
+
         <div className="space-y-4">
           {questions.length === 0 ? (
             <div className="bg-white shadow rounded-lg p-8 text-center">
               <h3 className="text-lg font-medium text-gray-900 mb-2">No Questions Yet</h3>
               <p className="text-gray-600 mb-4">Add your first question to complete this assessment.</p>
-              <button
-                onClick={() => setShowQuestionForm(true)}
-                className="bg-indigo-600 text-white px-6 py-2 rounded-md hover:bg-indigo-700"
-              >
-                Add First Question
-              </button>
+              <div className="space-x-2">
+                <button
+                  onClick={() => setShowQuestionLibrary(true)}
+                  className="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700"
+                >
+                  Browse Library
+                </button>
+                <button
+                  onClick={() => setShowQuestionForm(true)}
+                  className="bg-indigo-600 text-white px-6 py-2 rounded-md hover:bg-indigo-700"
+                >
+                  Create New Question
+                </button>
+              </div>
             </div>
           ) : (
             questions.map((question, index) => (

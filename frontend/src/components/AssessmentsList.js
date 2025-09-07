@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { apiService } from '../services/api';
 import toast from 'react-hot-toast';
 
 const AssessmentsList = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [assessments, setAssessments] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -105,7 +107,7 @@ const AssessmentsList = () => {
 
         <div className="mt-8">
           <button
-            onClick={() => window.location.href = '/dashboard'}
+            onClick={() => navigate(user?.role === 'admin' ? '/admin-dashboard' : '/recruiter-dashboard')}
             className="bg-gray-600 text-white px-6 py-2 rounded-md hover:bg-gray-700"
           >
             Back to Dashboard

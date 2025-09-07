@@ -1,26 +1,28 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { Toaster } from 'react-hot-toast';
 import Login from './components/Login';
 import ForgotPassword from './components/ForgotPassword';
 import ResetPassword from './components/ResetPassword';
 import SetPassword from './components/SetPassword';
-import Dashboard from './components/Dashboard';
+import RecruiterDashboard from './components/RecruiterDashboard';
+import AdminDashboard from './components/AdminDashboard';
+import CandidateDashboard from './components/CandidateDashboard';
 import AssessmentsList from './components/AssessmentsList';
 import CreateAssessment from './components/CreateAssessment';
-import AssessmentDetail from './components/AssessmentDetail';
-import AddQuestions from './components/AddQuestions';
 import ManageUsers from './components/ManageUsers';
-import TakeAssessment from './components/TakeAssessment';
-import ResultsDashboard from './components/ResultsDashboard';
-import AdvancedAnalytics from './components/AdvancedAnalytics';
 import CandidateInvitations from './components/CandidateInvitations';
-import RecruiterDashboard from './components/RecruiterDashboard';
-import CandidateDashboard from './components/CandidateDashboard';
 import CandidateDetails from './components/CandidateDetails';
 import QuestionForm from './components/QuestionForm';
-import './index.css';
+import TakeAssessment from './components/TakeAssessment';
+import CandidatePortal from './components/CandidatePortal';
+import AssessmentDetails from './components/AssessmentDetails';
+import EditAssessment from './components/EditAssessment';
+import EditQuestion from './components/EditQuestion';
+import AddQuestions from './components/AddQuestions';
+import AssessmentResults from './components/AssessmentResults';
+import './App.css';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -43,6 +45,8 @@ const RoleBasedRedirect = () => {
   
   if (user?.role === 'candidate') {
     return <Navigate to="/candidate-dashboard" replace />;
+  } else if (user?.role === 'admin') {
+    return <Navigate to="/admin-dashboard" replace />;
   } else {
     return <Navigate to="/recruiter-dashboard" replace />;
   }
@@ -67,6 +71,8 @@ const PublicRoute = ({ children }) => {
   // Redirect based on user role
   if (user?.role === 'candidate') {
     return <Navigate to="/candidate-dashboard" />;
+  } else if (user?.role === 'admin') {
+    return <Navigate to="/admin-dashboard" />;
   } else {
     return <Navigate to="/recruiter-dashboard" />;
   }
@@ -119,6 +125,15 @@ function App() {
               element={
                 <ProtectedRoute>
                   <RecruiterDashboard />
+                </ProtectedRoute>
+              } 
+            />
+            
+            <Route 
+              path="/admin-dashboard" 
+              element={
+                <ProtectedRoute>
+                  <AdminDashboard />
                 </ProtectedRoute>
               } 
             />
@@ -206,10 +221,19 @@ function App() {
             />
             
             <Route 
+              path="/assessments/:id/edit" 
+              element={
+                <ProtectedRoute>
+                  <EditAssessment />
+                </ProtectedRoute>
+              } 
+            />
+            
+            <Route 
               path="/assessments/:assessmentId" 
               element={
                 <ProtectedRoute>
-                  <AssessmentDetail />
+                  <AssessmentDetails />
                 </ProtectedRoute>
               } 
             />
@@ -228,6 +252,15 @@ function App() {
               element={
                 <ProtectedRoute>
                   <TakeAssessment />
+                </ProtectedRoute>
+              } 
+            />
+            
+            <Route 
+              path="/assessment-results/:assessmentId" 
+              element={
+                <ProtectedRoute>
+                  <AssessmentResults />
                 </ProtectedRoute>
               } 
             />

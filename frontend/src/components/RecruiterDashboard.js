@@ -161,15 +161,26 @@ const RecruiterDashboard = () => {
   const handleToggleAssessmentStatus = async (assessmentId, currentStatus) => {
     try {
       const newStatus = currentStatus === 'active' ? 'draft' : 'active';
-      console.log(`🔄 Toggling assessment ${assessmentId} from ${currentStatus} to ${newStatus}...`);
+      console.log(`🔄 Toggling assessment ${assessmentId} from "${currentStatus}" to "${newStatus}"...`);
+      console.log('🔄 Current status type:', typeof currentStatus, 'Value:', JSON.stringify(currentStatus));
       
-      await api.assessments.update(assessmentId, { status: newStatus });
+      const response = await api.assessments.update(assessmentId, { status: newStatus });
+      console.log('✅ Update response:', response);
+      
+      // Update the local state immediately
+      setAssessments(prev => prev.map(assessment => 
+        assessment.id === assessmentId 
+          ? { ...assessment, status: newStatus }
+          : assessment
+      ));
       
       toast.success(`Assessment ${newStatus === 'active' ? 'activated' : 'deactivated'} successfully`);
-      fetchAssessments();
     } catch (error) {
       console.error('❌ Error toggling assessment status:', error);
+      console.error('❌ Error details:', error.response?.data);
       toast.error('Error updating assessment status');
+      // Refresh on error to get correct state
+      fetchAssessments();
     }
   };
 
@@ -233,7 +244,9 @@ const RecruiterDashboard = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Recruiter Dashboard</h1>
+              <h1 className="text-3xl font-bold text-gray-900">
+                {user?.role === 'admin' ? 'Admin' : 'Recruiter'} Dashboard
+              </h1>
               <p className="text-gray-600">Manage candidates and assessments</p>
             </div>
             <div className="flex items-center space-x-3">
@@ -254,6 +267,15 @@ const RecruiterDashboard = () => {
                 <FileText className="w-4 h-4 mr-2" />
                 Create Assessment
               </button>
+              {user?.role === 'admin' && (
+                <button
+                  onClick={() => navigate('/manage-users')}
+                  className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center"
+                >
+                  <Users className="w-4 h-4 mr-2" />
+                  Manage Users
+                </button>
+              )}
               <button
                 onClick={handleLogout}
                 className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 flex items-center"

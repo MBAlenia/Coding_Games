@@ -93,14 +93,49 @@ class Assessment {
       const assessment = await this.findById(id);
       if (!assessment) return null;
 
-      // Get questions
+      // Get questions via junction table
       const [questions] = await pool.execute(
-        'SELECT * FROM questions WHERE assessment_id = ? ORDER BY id',
+        `SELECT q.*, aq.order_index, aq.points as question_points
+         FROM questions q 
+         JOIN assessment_questions aq ON q.id = aq.question_id 
+         WHERE aq.assessment_id = ? 
+         ORDER BY aq.order_index, q.id`,
         [id]
       );
 
       assessment.questions = questions;
+      
+      // Calculate total duration from questions' time_limit
+      assessment.calculated_duration = questions.reduce((total, question) => {
+        return total + (question.time_limit || 0);
+      }, 0);
+
       return assessment;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  static async updateDuration(id) {
+    try {
+      // Calculate total duration from questions
+      const [result] = await pool.execute(
+        `SELECT SUM(q.time_limit) as total_duration
+         FROM questions q 
+         JOIN assessment_questions aq ON q.id = aq.question_id 
+         WHERE aq.assessment_id = ?`,
+        [id]
+      );
+
+      const totalDuration = result[0]?.total_duration || 0;
+
+      // Update assessment duration
+      await pool.execute(
+        'UPDATE assessments SET duration = ? WHERE id = ?',
+        [totalDuration, id]
+      );
+
+      return totalDuration;
     } catch (error) {
       throw error;
     }

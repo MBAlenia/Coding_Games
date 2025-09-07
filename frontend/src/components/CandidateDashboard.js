@@ -321,7 +321,7 @@ const CandidateDashboard = () => {
                       
                       {status === 'completed' && (
                         <button
-                          onClick={() => navigate(`/results/${assessment.id}`)}
+                          onClick={() => navigate(`/assessment-results/${assessment.id}`)}
                           className="w-full py-2 px-4 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors"
                         >
                           View Results

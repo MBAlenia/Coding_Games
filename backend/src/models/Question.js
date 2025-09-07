@@ -2,12 +2,12 @@ const { pool } = require('../database/db');
 
 class Question {
   static async create(questionData) {
-    const { assessment_id, title, description, language, template_code, test_cases } = questionData;
+    const { assessment_id, title, description, language, template_code } = questionData;
     
     try {
       const [result] = await pool.execute(
-        'INSERT INTO questions (assessment_id, title, description, language, template_code, test_cases) VALUES (?, ?, ?, ?, ?, ?)',
-        [assessment_id, title, description, language, template_code, JSON.stringify(test_cases)]
+        'INSERT INTO questions (assessment_id, title, description, language, template_code) VALUES (?, ?, ?, ?, ?)',
+        [assessment_id, title, description, language, template_code]
       );
       
       return { id: result.insertId, ...questionData };
@@ -23,39 +23,32 @@ class Question {
         [id]
       );
       
-      if (rows[0]) {
-        rows[0].test_cases = JSON.parse(rows[0].test_cases);
-      }
-      
       return rows[0] || null;
     } catch (error) {
       throw error;
     }
   }
 
-  static async findByAssessment(assessment_id) {
+  static async findByAssessmentId(assessmentId) {
     try {
       const [rows] = await pool.execute(
         'SELECT * FROM questions WHERE assessment_id = ? ORDER BY id',
-        [assessment_id]
+        [assessmentId]
       );
       
-      return rows.map(row => ({
-        ...row,
-        test_cases: JSON.parse(row.test_cases)
-      }));
+      return rows;
     } catch (error) {
       throw error;
     }
   }
 
   static async update(id, questionData) {
-    const { title, description, language, template_code, test_cases } = questionData;
+    const { title, description, language, template_code } = questionData;
     
     try {
       const [result] = await pool.execute(
-        'UPDATE questions SET title = ?, description = ?, language = ?, template_code = ?, test_cases = ? WHERE id = ?',
-        [title, description, language, template_code, JSON.stringify(test_cases), id]
+        'UPDATE questions SET title = ?, description = ?, language = ?, template_code = ? WHERE id = ?',
+        [title, description, language, template_code, id]
       );
       return result.affectedRows > 0;
     } catch (error) {

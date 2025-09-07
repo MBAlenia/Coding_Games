@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { apiService } from '../services/api';
 import toast from 'react-hot-toast';
 
 const ManageUsers = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -76,7 +78,7 @@ const ManageUsers = () => {
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h2>
           <p className="text-gray-600 mb-4">Only admins can manage users.</p>
           <button
-            onClick={() => window.location.href = '/dashboard'}
+            onClick={() => navigate('/admin-dashboard')}
             className="bg-indigo-600 text-white px-6 py-2 rounded-md hover:bg-indigo-700"
           >
             Back to Dashboard
@@ -225,7 +227,7 @@ const ManageUsers = () => {
 
         <div className="mt-8">
           <button
-            onClick={() => window.location.href = '/dashboard'}
+            onClick={() => navigate(user?.role === 'admin' ? '/admin-dashboard' : '/recruiter-dashboard')}
             className="bg-gray-600 text-white px-6 py-2 rounded-md hover:bg-gray-700"
           >
             Back to Dashboard

@@ -6,15 +6,15 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci --only=production
+RUN npm install --omit=dev
 
 # Copy source code
 COPY src/ ./src/
 COPY healthcheck.js ./
 
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nodejs -u 1001
+# Create non-root user (check if exists first)
+RUN addgroup -g 1001 -S nodejs || true
+RUN adduser -S nodejs -u 1001 || true
 
 # Change ownership
 RUN chown -R nodejs:nodejs /app

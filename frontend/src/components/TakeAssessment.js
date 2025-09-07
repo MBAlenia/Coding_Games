@@ -59,9 +59,9 @@ const TakeAssessment = () => {
       
       setAssessment(assessmentData);
       setQuestions(assessmentData.questions || []);
-      // Set to 60 minutes for SQL tests
-      const duration = assessmentData.language === 'sql' ? 60 : assessmentData.duration;
-      setTimeLeft(duration * 60); // Convert minutes to seconds
+      // Use calculated duration from assessment (sum of all questions' time_limit)
+      const totalDuration = assessmentData.calculated_duration || assessmentData.duration || 60;
+      setTimeLeft(totalDuration * 60); // Convert minutes to seconds
       
       // Load template code for first question
       if (assessmentData.questions && assessmentData.questions.length > 0) {
@@ -78,10 +78,20 @@ const TakeAssessment = () => {
     }
   };
 
-  const handleTimeUp = () => {
+  const handleTimeUp = async () => {
     setIsRunning(false);
     toast.error('Time is up! Assessment submitted automatically.');
-    handleSubmitAssessment();
+    
+    // Save current code before auto-submission
+    if (code.trim()) {
+      const currentQuestion = questions[currentQuestionIndex];
+      setSubmissions(prev => ({
+        ...prev,
+        [currentQuestion.id]: code
+      }));
+    }
+    
+    await handleSubmitAssessment(true); // true = auto-submit
   };
 
   const handleQuestionChange = (index) => {
@@ -116,7 +126,24 @@ const TakeAssessment = () => {
         language: currentQuestion.language
       });
 
-      toast.success('Code submitted for testing!');
+      // Display AI scoring results
+      if (response.data.score !== undefined) {
+        toast.success(`Code evaluated! Score: ${response.data.score}/${response.data.maxScore}`);
+        
+        // Store submission result with AI feedback
+        setSubmissions(prev => ({
+          ...prev,
+          [currentQuestion.id]: {
+            code,
+            score: response.data.score,
+            maxScore: response.data.maxScore,
+            feedback: response.data.feedback,
+            status: response.data.status
+          }
+        }));
+      } else {
+        toast.success('Code submitted for testing!');
+      }
       
       // Poll for results
       setTimeout(() => checkSubmissionResult(response.data.submission.id), 2000);
@@ -143,7 +170,23 @@ const TakeAssessment = () => {
         language: currentQuestion.language
       });
 
-      toast.info('Compiling and testing...');
+      // Display AI scoring results for compilation
+      if (response.data.score !== undefined) {
+        toast.success(`Code compiled and evaluated! Score: ${response.data.score}/${response.data.maxScore}`);
+        
+        // Store compilation result with AI feedback
+        setCompilationStatus(prev => ({
+          ...prev,
+          [currentQuestion.id]: {
+            score: response.data.score,
+            maxScore: response.data.maxScore,
+            feedback: response.data.feedback,
+            status: response.data.status
+          }
+        }));
+      } else {
+        toast.info('Compiling and testing...');
+      }
       
       // Poll for compilation results
       setTimeout(() => checkCompilationResult(response.data.submission.id, currentQuestion.id), 2000);
@@ -260,18 +303,45 @@ const TakeAssessment = () => {
     }
   };
 
-  const handleSubmitAssessment = async () => {
+  const handleSubmitAssessment = async (isAutoSubmit = false) => {
     try {
-      // Submit final code for current question
+      setIsRunning(false);
+      
+      // Submit all saved submissions to backend
+      const allSubmissions = { ...submissions };
+      
+      // Include current code if not already saved
       if (code.trim()) {
         const currentQuestion = questions[currentQuestionIndex];
-        await api.post(`/submissions/${currentQuestion.id}`, {
-          code,
-          language: currentQuestion.language
-        });
+        allSubmissions[currentQuestion.id] = code;
       }
 
-      toast.success('Assessment submitted successfully!');
+      // Submit each question's code
+      const submissionPromises = Object.entries(allSubmissions).map(async ([questionId, questionCode]) => {
+        const question = questions.find(q => q.id == questionId);
+        if (question && questionCode) {
+          return api.post(`/submissions/${questionId}`, {
+            code: questionCode,
+            language: question.language,
+            assessment_id: assessmentId,
+            is_final: true
+          });
+        }
+      });
+
+      await Promise.all(submissionPromises.filter(Boolean));
+
+      // Trigger AI scoring for the entire assessment
+      try {
+        await api.post(`/assessments/${assessmentId}/finalize`, {
+          auto_submit: isAutoSubmit
+        });
+        toast.success(isAutoSubmit ? 'Assessment auto-submitted and scored!' : 'Assessment submitted and scored!');
+      } catch (scoringError) {
+        console.error('Error triggering AI scoring:', scoringError);
+        toast.success(isAutoSubmit ? 'Assessment auto-submitted!' : 'Assessment submitted!');
+      }
+
       navigate('/dashboard');
     } catch (error) {
       console.error('Error submitting assessment:', error);
@@ -336,11 +406,15 @@ const TakeAssessment = () => {
             </div>
             
             <div className="flex items-center space-x-4">
-              <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg ${
-                timeLeft < 300 ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
+              <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-500 ${
+                timeLeft < 300 ? 'bg-red-100 text-red-700 animate-pulse' : 
+                timeLeft < 600 ? 'bg-yellow-100 text-yellow-700' : 
+                'bg-blue-100 text-blue-700'
               }`}>
-                <Clock className="h-4 w-4" />
-                <span className="font-mono font-medium">{formatTime(timeLeft)}</span>
+                <Clock className={`h-4 w-4 ${
+                  timeLeft < 300 ? 'animate-bounce' : ''
+                }`} />
+                <span className="font-mono font-medium text-lg">{formatTime(timeLeft)}</span>
               </div>
               
               <button
@@ -396,7 +470,7 @@ const TakeAssessment = () => {
                       {currentQuestion.language}
                     </span>
                     <span>Max Score: {currentQuestion.max_score || 100}</span>
-                    <span>Time Limit: {currentQuestion.time_limit || 30}s</span>
+                    <span>Time Limit: {currentQuestion.time_limit || 30} min</span>
                   </div>
                 </div>
                 

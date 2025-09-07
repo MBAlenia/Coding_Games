@@ -50,6 +50,8 @@ const submissionRoutes = require('./routes/submissions');
 const invitationRoutes = require('./routes/invitations');
 const candidateRoutes = require('./routes/candidates');
 const candidateInvitationRoutes = require('./routes/candidateInvitationRoutes');
+const questionLibraryRoutes = require('./routes/question-library');
+const cacheRoutes = require('./routes/cache');
 
 // Route de santé (MUST be before authenticated routes)
 app.get('/api/health', (req, res) => {
@@ -70,6 +72,8 @@ app.use('/api/submissions', submissionRoutes);
 app.use('/api/candidates', candidateRoutes);
 // Mount candidateInvitationRoutes for candidate self-access on different path  
 app.use('/api/candidate-portal', candidateInvitationRoutes);
+app.use('/api/question-library', questionLibraryRoutes);
+app.use('/api/cache', cacheRoutes);
 app.use('/api', invitationRoutes);
 
 // Gérer les erreurs 404
@@ -87,6 +91,8 @@ app.use((err, req, res, next) => {
 });
 
 const { checkDbConnection } = require('./database/db');
+const { initializeTimeoutJob } = require('./jobs/assessmentTimeoutJob');
+const redisService = require('./services/redisService');
 
 const PORT = process.env.PORT || 3001;
 
@@ -95,7 +101,13 @@ const startServer = async () => {
     // 1. Vérifier la connexion à la base de données
     await checkDbConnection();
 
-    // 2. Démarrer le serveur Express
+    // 2. Connecter Redis
+    await redisService.connect();
+
+    // 3. Initialiser le job de timeout des assessments
+    initializeTimeoutJob();
+
+    // 4. Démarrer le serveur Express
     app.listen(PORT, () => {
       console.log(`🚀 Server is running on port ${PORT}`);
       console.log(`   Mode: ${process.env.NODE_ENV}`);

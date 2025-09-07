@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Mail, Phone, Building, Calendar, FileText, Clock, CheckCircle, Users, Send } from 'lucide-react';
+import { X, Mail, Phone, Building, Calendar, FileText, Clock, CheckCircle, Users, Send, ArrowLeft } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import api, { apiService } from '../services/api';
 
@@ -328,9 +328,9 @@ export const SendInvitationModal = ({ candidate, assessments, onClose, onSent })
               required
             >
               <option value="">Choose an assessment...</option>
-              {assessmentsArray.filter(a => a.status === 'active').map((assessment) => (
+              {assessmentsArray.map((assessment) => (
                 <option key={assessment.id} value={assessment.id}>
-                  {assessment.title} ({assessment.language} - {assessment.duration}min - {assessment.difficulty || 'medium'})
+                  {assessment.title} ({assessment.language} - {assessment.duration}min - {assessment.difficulty || 'medium'}) - {assessment.status}
                 </option>
               ))}
             </select>

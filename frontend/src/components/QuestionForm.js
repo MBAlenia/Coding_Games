@@ -19,10 +19,7 @@ const QuestionForm = () => {
     language: 'javascript',
     difficulty: 'medium',
     time_limit: 30,
-    points: 100,
-    test_cases: [
-      { input: '', expected: '', description: '', is_hidden: false }
-    ]
+    points: 100
   });
 
   const languages = [
@@ -30,6 +27,12 @@ const QuestionForm = () => {
     { value: 'python', label: 'Python' },
     { value: 'java', label: 'Java' },
     { value: 'cpp', label: 'C++' },
+    { value: 'csharp', label: 'C#' },
+    { value: 'go', label: 'Go' },
+    { value: 'rust', label: 'Rust' },
+    { value: 'typescript', label: 'TypeScript' },
+    { value: 'php', label: 'PHP' },
+    { value: 'ruby', label: 'Ruby' },
     { value: 'sql', label: 'SQL' }
   ];
 
@@ -65,8 +68,7 @@ const QuestionForm = () => {
       const response = await api.get(`/questions/${questionId}`);
       const question = response.data;
       setFormData({
-        ...question,
-        test_cases: JSON.parse(question.test_cases || '[]')
+        ...question
       });
     } catch (error) {
       toast.error('Erreur lors du chargement de la question');
@@ -88,33 +90,6 @@ const QuestionForm = () => {
     }));
   };
 
-  const handleTestCaseChange = (index, field, value) => {
-    const updatedTestCases = [...formData.test_cases];
-    updatedTestCases[index][field] = value;
-    setFormData(prev => ({
-      ...prev,
-      test_cases: updatedTestCases
-    }));
-  };
-
-  const addTestCase = () => {
-    setFormData(prev => ({
-      ...prev,
-      test_cases: [
-        ...prev.test_cases,
-        { input: '', expected: '', description: '', is_hidden: false }
-      ]
-    }));
-  };
-
-  const removeTestCase = (index) => {
-    if (formData.test_cases.length > 1) {
-      setFormData(prev => ({
-        ...prev,
-        test_cases: prev.test_cases.filter((_, i) => i !== index)
-      }));
-    }
-  };
 
   const validateForm = () => {
     if (!formData.title.trim()) {
@@ -134,14 +109,6 @@ const QuestionForm = () => {
       return false;
     }
     
-    for (let i = 0; i < formData.test_cases.length; i++) {
-      const tc = formData.test_cases[i];
-      if (!tc.input.trim() || !tc.expected.trim()) {
-        toast.error(`Le cas de test ${i + 1} est incomplet`);
-        return false;
-      }
-    }
-    
     return true;
   };
 
@@ -155,8 +122,7 @@ const QuestionForm = () => {
     try {
       const payload = {
         ...formData,
-        assessment_id: assessmentId,
-        test_cases: JSON.stringify(formData.test_cases)
+        assessment_id: assessmentId
       };
 
       if (isEdit) {
@@ -223,6 +189,8 @@ const QuestionForm = () => {
                 value={formData.language}
                 onChange={handleInputChange}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                size="1"
+                style={{ height: 'auto' }}
               >
                 {languages.map(lang => (
                   <option key={lang.value} value={lang.value}>
@@ -322,105 +290,23 @@ const QuestionForm = () => {
             </p>
           </div>
 
-          {/* Cas de test */}
-          <div>
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-800">
-                Cas de test
-              </h3>
-              <button
-                type="button"
-                onClick={addTestCase}
-                className="flex items-center px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-              >
-                <Plus className="w-4 h-4 mr-1" />
-                Ajouter un cas
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              {formData.test_cases.map((testCase, index) => (
-                <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                  <div className="flex justify-between items-center mb-3">
-                    <h4 className="font-medium text-gray-700">
-                      Cas de test {index + 1}
-                    </h4>
-                    {formData.test_cases.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeTestCase(index)}
-                        className="text-red-600 hover:text-red-800"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-600 mb-1">
-                        Input (JSON)
-                      </label>
-                      <textarea
-                        value={testCase.input}
-                        onChange={(e) => handleTestCaseChange(index, 'input', e.target.value)}
-                        rows="3"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
-                        placeholder='Ex: [1, 2, 3] ou {"name": "test"}'
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-600 mb-1">
-                        Output attendu (JSON)
-                      </label>
-                      <textarea
-                        value={testCase.expected}
-                        onChange={(e) => handleTestCaseChange(index, 'expected', e.target.value)}
-                        rows="3"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
-                        placeholder='Ex: 6 ou "result"'
-                      />
-                    </div>
-
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-600 mb-1">
-                        Description (optionnel)
-                      </label>
-                      <input
-                        type="text"
-                        value={testCase.description}
-                        onChange={(e) => handleTestCaseChange(index, 'description', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                        placeholder="Description du cas de test"
-                      />
-                    </div>
-
-                    <div className="md:col-span-2">
-                      <label className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={testCase.is_hidden}
-                          onChange={(e) => handleTestCaseChange(index, 'is_hidden', e.target.checked)}
-                          className="mr-2"
-                        />
-                        <span className="text-sm text-gray-600">
-                          Cas de test caché (non visible par le candidat)
-                        </span>
-                      </label>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-800 flex items-start">
-                <AlertCircle className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
-                Les cas de test doivent être au format JSON valide. Les cas cachés ne seront pas visibles par les candidats.
-              </p>
+          {/* Note sur l'évaluation IA */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-start">
+              <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5 mr-2 flex-shrink-0" />
+              <div>
+                <h4 className="text-sm font-medium text-blue-800 mb-1">
+                  Évaluation par Intelligence Artificielle
+                </h4>
+                <p className="text-sm text-blue-700">
+                  Cette question sera automatiquement évaluée par notre IA. 
+                  L'IA analysera la réponse du candidat en fonction de l'énoncé et attribuera un score sur {formData.points} points.
+                  Aucun test case manuel n'est nécessaire.
+                </p>
+              </div>
             </div>
           </div>
+
 
           {/* Boutons d'action */}
           <div className="flex justify-end space-x-4 pt-6 border-t">

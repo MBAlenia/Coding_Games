@@ -68,6 +68,8 @@ const SetPassword = () => {
         } else {
           navigate('/candidate-dashboard');
         }
+      } else if (response.data.user.role === 'admin') {
+        navigate('/admin-dashboard');
       } else {
         navigate('/recruiter-dashboard');
       }

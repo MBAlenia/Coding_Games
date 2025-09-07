@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const { pool: db } = require('../database/db');
+const { checkAndCompleteTimedOutAssessments } = require('../utils/assessmentTimeout');
 
 const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -23,6 +24,20 @@ const authenticateToken = async (req, res, next) => {
     }
 
     req.user = users[0];
+    
+    // Check for timed out assessments if user is a candidate
+    if (users[0].role === 'candidate') {
+      try {
+        const completedCount = await checkAndCompleteTimedOutAssessments(users[0].email);
+        if (completedCount > 0) {
+          console.log(`Auto-completed ${completedCount} timed out assessment(s) for candidate: ${users[0].email}`);
+        }
+      } catch (error) {
+        console.error('Error checking timed out assessments during authentication:', error);
+        // Don't block authentication if timeout check fails
+      }
+    }
+    
     next();
   } catch (error) {
     return res.status(403).json({ message: 'Invalid or expired token' });

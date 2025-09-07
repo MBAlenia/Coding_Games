@@ -3,11 +3,14 @@ const router = express.Router();
 const questionController = require('../controllers/questionController');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 
+// Get all questions (question library)
+router.get('/', authenticateToken, questionController.getAllQuestions);
+
 // Get all questions for an assessment
 router.get('/assessment/:assessmentId', authenticateToken, questionController.getQuestions);
 
-// Create new question for an assessment
-router.post('/assessment/:assessmentId', 
+// Create new question (independent)
+router.post('/', 
   authenticateToken, 
   requireRole(['recruiter', 'admin']), 
   questionController.createQuestion

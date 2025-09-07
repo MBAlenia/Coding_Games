@@ -12,14 +12,13 @@ router.get('/dashboard/stats', candidateController.getDashboardStats);
 
 // CRUD operations - Simple routes for recruiters
 router.get('/', candidateController.getCandidates);
-router.get('/:id', candidateController.getCandidateById);
 router.post('/', candidateController.createCandidate);
-router.put('/:id', candidateController.updateCandidate);
-router.delete('/:id', candidateController.deleteCandidate);
+router.get('/:id', candidateController.getCandidateById);
 
 // Submissions and history
-router.get('/:id/submissions', candidateController.getCandidateSubmissions);
-router.get('/:id/history', candidateController.getCandidateHistory);
+router.get('/:candidateId/submissions', candidateController.getCandidateSubmissions);
+// Get candidate history
+router.get('/:candidateId/history', candidateController.getCandidateHistory);
 router.post('/:candidateId/history', candidateController.addCandidateHistory);
 
 module.exports = router;

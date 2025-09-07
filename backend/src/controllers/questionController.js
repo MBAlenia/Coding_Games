@@ -1,10 +1,39 @@
 const { pool: db } = require('../database/db');
+const redisService = require('../services/redisService');
 
 const questionController = {
+  // Get all questions (question library)
+  getAllQuestions: async (req, res) => {
+    try {
+      const [questions] = await db.execute(`
+        SELECT id, title, description, language, difficulty, created_at
+        FROM questions 
+        ORDER BY created_at DESC
+      `);
+      
+      res.json(questions);
+    } catch (error) {
+      console.error('Error fetching all questions:', error);
+      res.status(500).json({ message: 'Erreur lors de la récupération des questions' });
+    }
+  },
+
   // Get all questions for an assessment
   getQuestions: async (req, res) => {
     try {
       const { assessmentId } = req.params;
+      
+      // Check cache first (only if Redis is connected)
+      let cachedQuestions = null;
+      if (redisService.isConnected) {
+        const cacheKey = redisService.constructor.keys.questions(assessmentId);
+        cachedQuestions = await redisService.get(cacheKey);
+        
+        if (cachedQuestions) {
+          console.log('📦 Questions loaded from cache for assessment:', assessmentId);
+          return res.json(cachedQuestions);
+        }
+      }
       
       const [questions] = await db.execute(`
         SELECT id, title, description, language, difficulty, points, time_limit, created_at
@@ -13,6 +42,13 @@ const questionController = {
         ORDER BY created_at ASC
       `, [assessmentId]);
       
+      // Cache the results for 1 hour (only if Redis is connected)
+      if (redisService.isConnected) {
+        const cacheKey = redisService.constructor.keys.questions(assessmentId);
+        await redisService.set(cacheKey, questions, redisService.constructor.TTL.LONG);
+        console.log('💾 Questions cached for assessment:', assessmentId);
+      }
+      
       res.json(questions);
     } catch (error) {
       console.error('Error fetching questions:', error);
@@ -20,30 +56,33 @@ const questionController = {
     }
   },
 
-  // Create new question
+  // Create new question (independent)
   createQuestion: async (req, res) => {
     try {
-      const { assessmentId } = req.params;
-      const {
-        title, description, initial_code, language, difficulty,
-        points, time_limit, test_cases
-      } = req.body;
+      const { title, description, template_code, language, difficulty, time_limit, points } = req.body;
+
+      console.log('Creating question with data:', { title, description, template_code, language, difficulty, time_limit, points });
 
       // Validate required fields
-      if (!title || !description || !language) {
-        return res.status(400).json({ message: 'Titre, description et langage sont requis' });
+      if (!title || !description) {
+        return res.status(400).json({ 
+          message: 'Validation failed', 
+          errors: ['Title and description are required'] 
+        });
       }
 
-      // Insert question
+      // Insert question (independent of assessment)
       const [result] = await db.execute(`
-        INSERT INTO questions (
-          assessment_id, title, description, initial_code, language,
-          difficulty, points, time_limit, test_cases, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        INSERT INTO questions (title, description, template_code, language, difficulty, time_limit, points, created_at) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
       `, [
-        assessmentId, title, description, initial_code || '', language,
-        difficulty || 'medium', points || 100, time_limit || 30,
-        JSON.stringify(test_cases || [])
+        title, 
+        description, 
+        template_code || '', 
+        language || 'javascript', 
+        difficulty || 'intermediate',
+        time_limit || 60,
+        points || 10
       ]);
 
       res.status(201).json({
@@ -79,14 +118,6 @@ const questionController = {
 
       const question = questions[0];
 
-      // Parse test_cases if it's a JSON string
-      if (question.test_cases && typeof question.test_cases === 'string') {
-        try {
-          question.test_cases = JSON.parse(question.test_cases);
-        } catch (e) {
-          question.test_cases = [];
-        }
-      }
 
       // If candidate, also get their submissions for this question
       if (userRole === 'candidate') {
@@ -110,35 +141,26 @@ const questionController = {
   updateQuestion: async (req, res) => {
     try {
       const { id } = req.params;
-      const { title, description, language, initial_code, test_cases, points, time_limit, difficulty } = req.body;
+      const { title, description, language, template_code, difficulty } = req.body;
       const userId = req.user.id;
       const userRole = req.user.role;
 
-      // Check if user can update this question
-      if (userRole !== 'admin') {
-        const [questions] = await db.execute(`
-          SELECT q.*, a.created_by 
-          FROM questions q 
-          JOIN assessments a ON q.assessment_id = a.id 
-          WHERE q.id = ?
-        `, [id]);
+      console.log('Updating question with data:', { title, description, language, template_code, difficulty });
 
-        if (questions.length === 0) {
-          return res.status(404).json({ message: 'Question non trouvée' });
-        }
-
-        if (questions[0].created_by !== userId) {
-          return res.status(403).json({ message: 'Accès refusé' });
-        }
+      // Validate required fields
+      if (!title || !description) {
+        return res.status(400).json({ 
+          message: 'Validation failed', 
+          errors: ['Title and description are required'] 
+        });
       }
 
       // Update question
       const [result] = await db.execute(`
         UPDATE questions 
-        SET title = ?, description = ?, language = ?, initial_code = ?, 
-            test_cases = ?, points = ?, time_limit = ?, difficulty = ?
+        SET title = ?, description = ?, language = ?, template_code = ?, difficulty = ?, updated_at = NOW()
         WHERE id = ?
-      `, [title, description, language, initial_code || '', JSON.stringify(test_cases || []), points || 100, time_limit || 30, difficulty || 'medium', id]);
+      `, [title, description, language || 'javascript', template_code || '', difficulty || 'intermediate', id]);
 
       if (result.affectedRows === 0) {
         return res.status(404).json({ message: 'Question non trouvée' });

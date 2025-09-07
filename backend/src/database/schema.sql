@@ -26,13 +26,16 @@ CREATE TABLE IF NOT EXISTS `assessments` (
 -- Table des questions
 CREATE TABLE IF NOT EXISTS `questions` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `assessment_id` INT NOT NULL,
   `title` VARCHAR(255) NOT NULL,
-  `problem_statement` TEXT NOT NULL,
-  `initial_code` TEXT, -- Code de démarrage pour le candidat
-  `test_cases` JSON NOT NULL, -- ex: '[{"input": [1, 2], "expected": 3, "functionCall": "add(1, 2)"}]'
+  `description` TEXT NOT NULL,
+  `language` ENUM('javascript', 'python', 'java', 'sql') NOT NULL,
+  `template_code` TEXT, -- Code de démarrage pour le candidat
+  `time_limit` INT DEFAULT 60, -- en minutes
+  `order_index` INT DEFAULT 0,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (`assessment_id`) REFERENCES `assessments`(`id`) ON DELETE CASCADE
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `difficulty` ENUM('beginner', 'intermediate', 'advanced', 'expert') DEFAULT 'intermediate',
+  `points` INT DEFAULT 10
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Table des soumissions de code

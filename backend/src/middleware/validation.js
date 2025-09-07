@@ -68,17 +68,28 @@ const validateQuestion = [
     .withMessage('Description is required'),
   
   body('language')
-    .isIn(['javascript', 'python', 'sql'])
-    .withMessage('Language must be javascript, python, or sql'),
+    .isIn(['javascript', 'python', 'java', 'sql'])
+    .withMessage('Language must be javascript, python, java, or sql'),
+  
+  body('technology')
+    .optional()
+    .isString()
+    .withMessage('Technology must be a string'),
+  
+  body('difficulty')
+    .optional()
+    .isIn(['beginner', 'intermediate', 'advanced', 'expert'])
+    .withMessage('Difficulty must be beginner, intermediate, advanced, or expert'),
+  
+  body('tags')
+    .optional()
+    .isArray()
+    .withMessage('Tags must be an array'),
   
   body('template_code')
     .optional()
     .isString()
     .withMessage('Template code must be a string'),
-  
-  body('test_cases')
-    .isArray({ min: 1 })
-    .withMessage('At least one test case is required'),
   
   handleValidationErrors
 ];

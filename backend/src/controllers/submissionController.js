@@ -1,4 +1,5 @@
 const { pool: db } = require('../database/db');
+const aiScoringService = require('../services/aiScoringService');
 
 // Simplified submission controller without queue for now
 // TODO: Re-implement queue system when needed
@@ -37,34 +38,64 @@ const submitCode = async (req, res) => {
       });
     }
 
-    // Parse test cases
-    let testCases;
-    try {
-      testCases = JSON.parse(question.test_cases);
-    } catch (error) {
-      console.error('Failed to parse test cases:', error);
-      return res.status(500).json({ 
-        message: 'Invalid test cases configuration' 
-      });
-    }
+    // Test cases no longer needed with AI scoring
+    // Skip test case parsing since AI evaluates directly
 
-    // Create submission record
+    // Create submission record with pending status
     const [result] = await db.execute(
-      `INSERT INTO submissions (user_id, question_id, code, language, status, created_at) 
-       VALUES (?, ?, ?, ?, 'completed', NOW())`,
+      `INSERT INTO submissions (user_id, question_id, code, language, status, submitted_at) 
+       VALUES (?, ?, ?, ?, 'pending', NOW())`,
       [userId, questionId, code, language]
     );
 
     const submissionId = result.insertId;
 
-    // For now, return a simple success response
-    // TODO: Implement actual code execution when queue system is ready
-    res.status(201).json({
-      message: 'Code submitted successfully',
-      submissionId,
-      status: 'completed',
-      score: 0 // Placeholder score
-    });
+    // Évaluer la réponse avec l'IA
+    try {
+      const questionText = `${question.title}\n\n${question.description}`;
+      const aiResult = await aiScoringService.scoreAnswer(
+        questionText, 
+        code, 
+        question.max_score
+      );
+
+      // Mettre à jour la soumission avec le score de l'IA
+      await db.execute(
+        `UPDATE submissions 
+         SET status = 'passed', score = ?, test_results = ?, executed_at = NOW()
+         WHERE id = ?`,
+        [aiResult.score, JSON.stringify({ ai_feedback: aiResult.feedback }), submissionId]
+      );
+
+      res.status(201).json({
+        message: 'Code submitted and evaluated successfully',
+        submissionId,
+        status: 'passed',
+        score: aiResult.score,
+        maxScore: question.max_score,
+        feedback: aiResult.feedback
+      });
+
+    } catch (aiError) {
+      console.error('AI scoring error:', aiError);
+      
+      // Fallback: marquer comme completed avec score 0
+      await db.execute(
+        `UPDATE submissions 
+         SET status = 'error', score = 0, error_message = ?, executed_at = NOW()
+         WHERE id = ?`,
+        ['AI scoring failed', submissionId]
+      );
+
+      res.status(201).json({
+        message: 'Code submitted but scoring failed',
+        submissionId,
+        status: 'error',
+        score: 0,
+        maxScore: question.max_score,
+        feedback: 'Erreur lors de l\'évaluation automatique'
+      });
+    }
 
   } catch (error) {
     console.error('Submission error:', error);

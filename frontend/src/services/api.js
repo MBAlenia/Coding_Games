@@ -11,6 +11,10 @@ axios.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    // Ensure Content-Type is set for POST/PUT requests
+    if ((config.method === 'post' || config.method === 'put') && !config.headers['Content-Type']) {
+      config.headers['Content-Type'] = 'application/json';
+    }
     return config;
   },
   (error) => {
@@ -51,11 +55,14 @@ export const api = {
     create: (data) => axios.post('/api/assessments', data),
     update: (id, data) => axios.put(`/api/assessments/${id}`, data),
     delete: (id) => axios.delete(`/api/assessments/${id}`),
-    addQuestion: (id, questionData) => axios.post(`/api/assessments/${id}/questions`, questionData)
+    addQuestion: (id, questionData) => axios.post(`/api/assessments/${id}/questions`, questionData),
+    addExistingQuestion: (id, questionData) => axios.post(`/api/assessments/${id}/add-question`, questionData),
+    removeQuestion: (id, questionId) => axios.delete(`/api/assessments/${id}/questions/${questionId}`)
   },
 
   // Question endpoints
   questions: {
+    getAll: () => axios.get('/api/questions'),
     getByAssessment: (assessmentId) => axios.get(`/api/questions/assessment/${assessmentId}`),
     create: (assessmentId, data) => axios.post(`/api/questions/assessment/${assessmentId}`, data),
     getById: (id) => axios.get(`/api/questions/${id}`),

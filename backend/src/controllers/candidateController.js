@@ -5,10 +5,8 @@ exports.getCandidates = async (req, res) => {
   try {
     const [candidates] = await db.execute(`
       SELECT 
-        id, email, first_name, last_name, phone, company, 
-        position, experience_years, skills, resume_url, 
-        linkedin_url, github_url, notes, status, 
-        created_at, last_login
+        id, email, first_name, last_name, username,
+        role, status, created_at
       FROM users 
       WHERE role = 'candidate' OR role IS NULL
       ORDER BY created_at DESC
@@ -28,10 +26,8 @@ exports.getCandidateById = async (req, res) => {
     
     const [candidates] = await db.execute(`
       SELECT 
-        id, email, first_name, last_name, phone, company, 
-        position, experience_years, skills, resume_url, 
-        linkedin_url, github_url, notes, status, 
-        created_at, last_login
+        id, email, first_name, last_name, username,
+        role, status, created_at
       FROM users 
       WHERE id = ? AND (role = 'candidate' OR role IS NULL)
     `, [id]);
@@ -131,9 +127,7 @@ exports.updateCandidate = async (req, res) => {
     const values = [];
     
     const allowedFields = [
-      'email', 'first_name', 'last_name', 'phone', 'company',
-      'position', 'experience_years', 'skills', 'resume_url',
-      'linkedin_url', 'github_url', 'notes', 'status'
+      'email', 'first_name', 'last_name', 'username', 'status'
     ];
     
     for (const field of allowedFields) {
@@ -382,6 +376,58 @@ exports.getMySubmissions = async (req, res) => {
   }
 };
 
+// Get candidate submissions (for recruiters viewing a specific candidate)
+exports.getCandidateSubmissions = async (req, res) => {
+  try {
+    const { candidateId } = req.params;
+    
+    // Get all submissions for this candidate
+    const [submissions] = await db.execute(`
+      SELECT 
+        s.id,
+        s.question_id,
+        s.code,
+        s.status,
+        s.score,
+        s.execution_time,
+        s.memory_used,
+        s.error_message,
+        s.submitted_at,
+        s.executed_at,
+        q.title as question_title,
+        q.language,
+        q.difficulty,
+        q.points,
+        a.id as assessment_id,
+        a.title as assessment_title
+      FROM submissions s
+      JOIN questions q ON s.question_id = q.id
+      JOIN assessments a ON q.assessment_id = a.id
+      WHERE s.user_id = ?
+      ORDER BY s.submitted_at DESC
+    `, [candidateId]);
+    
+    // Group submissions by assessment
+    const assessmentMap = {};
+    submissions.forEach(submission => {
+      if (!assessmentMap[submission.assessment_id]) {
+        assessmentMap[submission.assessment_id] = {
+          assessment_id: submission.assessment_id,
+          assessment_title: submission.assessment_title,
+          submissions: []
+        };
+      }
+      assessmentMap[submission.assessment_id].submissions.push(submission);
+    });
+    
+    const result = Object.values(assessmentMap);
+    res.json(result);
+  } catch (error) {
+    console.error('Error fetching candidate submissions:', error);
+    res.status(500).json({ message: 'Error fetching submissions' });
+  }
+};
+
 // Get candidate history
 exports.getCandidateHistory = async (req, res) => {
   try {
@@ -405,5 +451,48 @@ exports.getCandidateHistory = async (req, res) => {
   } catch (error) {
     console.error('Error fetching candidate history:', error);
     res.status(500).json({ message: 'Erreur lors de la récupération de l\'historique' });
+  }
+};
+
+// Get dashboard statistics
+exports.getDashboardStats = async (req, res) => {
+  try {
+    // Get total candidates
+    const [totalCandidatesResult] = await db.execute(`
+      SELECT COUNT(*) as count 
+      FROM users 
+      WHERE role = 'candidate' OR role IS NULL
+    `);
+    
+    // Get active candidates (those with status 'active')
+    const [activeCandidatesResult] = await db.execute(`
+      SELECT COUNT(*) as count 
+      FROM users 
+      WHERE (role = 'candidate' OR role IS NULL) AND status = 'active'
+    `);
+    
+    // Get total assessments
+    const [totalAssessmentsResult] = await db.execute(`
+      SELECT COUNT(*) as count 
+      FROM assessments
+    `);
+    
+    // Get total submissions
+    const [totalSubmissionsResult] = await db.execute(`
+      SELECT COUNT(*) as count 
+      FROM submissions
+    `);
+    
+    const stats = {
+      totalCandidates: totalCandidatesResult[0].count,
+      activeCandidates: activeCandidatesResult[0].count,
+      totalAssessments: totalAssessmentsResult[0].count,
+      totalSubmissions: totalSubmissionsResult[0].count
+    };
+    
+    res.json(stats);
+  } catch (error) {
+    console.error('Error fetching dashboard stats:', error);
+    res.status(500).json({ message: 'Erreur lors de la récupération des statistiques' });
   }
 };
