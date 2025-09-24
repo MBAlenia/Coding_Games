@@ -63,6 +63,11 @@ const Login = () => {
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
             Sign in to your account
           </h2>
+          <div className="text-center mt-2">
+            <div className="text-xs text-gray-500">
+              Version: {process.env.REACT_APP_VERSION || '1.0.0'}
+            </div>
+          </div>
         </div>
         
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>

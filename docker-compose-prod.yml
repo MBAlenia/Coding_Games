@@ -1,0 +1,156 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    # Remove ports for Traefik routing
+    volumes:
+      # Remove development volume mounts for production
+      - /app/node_modules
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=mysql
+      - DB_USER=${MYSQL_USER}
+      - DB_PASSWORD=${MYSQL_PASSWORD}
+      - DB_NAME=${MYSQL_DATABASE}
+      - JWT_SECRET=${JWT_SECRET}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      # Add production-specific environment variables
+      - PORT=3001
+      # Alenia domain configuration
+      - DOMAIN_NAME=academy.alenia.io
+      - API_BASE_URL=https://api.academy.alenia.io
+    networks:
+      - app-network
+    restart: unless-stopped
+    # Add healthcheck for backend
+    healthcheck:
+      test: ["CMD", "node", "healthcheck.js"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    # Add Traefik labels
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.coding_api.rule=Host(`api.academy.alenia.io`)"
+      - "traefik.http.routers.coding_api.entrypoints=websecure"
+      - "traefik.http.routers.coding_api.tls.certresolver=myresolver"
+      - "traefik.http.routers.coding_api.service=svc_coding_api"
+      - "traefik.http.services.svc_coding_api.loadbalancer.server.port=3001"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    # Remove ports for Traefik routing
+    # Remove development volume mounts for production
+    depends_on:
+      - backend
+    networks:
+      - app-network
+    restart: unless-stopped
+    # Add healthcheck for frontend
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/healthz || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    environment:
+      # Alenia domain configuration
+      - REACT_APP_DOMAIN_NAME=academy.alenia.io
+      - REACT_APP_API_BASE_URL=https://api.academy.alenia.io
+      # Add version information
+      - REACT_APP_VERSION=1.0.0
+    # Add Traefik labels
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.coding_frontend.rule=Host(`academy.alenia.io`)"
+      - "traefik.http.routers.coding_frontend.entrypoints=websecure"
+      - "traefik.http.routers.coding_frontend.tls.certresolver=myresolver"
+      - "traefik.http.routers.coding_frontend.service=svc_coding_frontend"
+      - "traefik.http.services.svc_coding_frontend.loadbalancer.server.port=80"
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      # Use the init script for production
+      - ./init_db.sql:/docker-entrypoint-initdb.d/1_init.sql
+    networks:
+      - app-network
+    # Remove ports for security in production
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      timeout: 20s
+      retries: 10
+      interval: 10s
+      start_period: 40s
+    restart: unless-stopped
+    # Production-specific MySQL configuration
+    command: --default-authentication-plugin=mysql_native_password
+    # Add security options
+    security_opt:
+      - no-new-privileges:true
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    networks:
+      - app-network
+    # Don't expose Redis port in production for security
+    restart: unless-stopped
+    # Add healthcheck for redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  phpmyadmin:
+    image: phpmyadmin:5.2
+    environment:
+      - PMA_HOST=mysql
+      - PMA_USER=${MYSQL_USER}
+      - PMA_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+    networks:
+      - app-network
+    restart: unless-stopped
+    depends_on:
+      - mysql
+    # Add Traefik labels
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.coding_phpmyadmin.rule=Host(`phpmyadmin.academy.alenia.io`)"
+      - "traefik.http.routers.coding_phpmyadmin.entrypoints=websecure"
+      - "traefik.http.routers.coding_phpmyadmin.tls.certresolver=myresolver"
+      - "traefik.http.routers.coding_phpmyadmin.service=svc_coding_phpmyadmin"
+      - "traefik.http.services.svc_coding_phpmyadmin.loadbalancer.server.port=80"
+
+volumes:
+  mysql_data:
+    # Use named volumes for production persistence
+  redis_data:
+    # Use named volumes for production persistence
+
+networks:
+  app-network:
+    driver: bridge
+    # Add network security options
+    driver_opts:
+      com.docker.network.bridge.enable_ip_masquerade: "true"
