@@ -20,7 +20,6 @@ services:
       - DB_NAME=${MYSQL_DATABASE}
       - JWT_SECRET=${JWT_SECRET}
       - REDIS_HOST=redis
-      - REDIS_PORT=6379
     networks:
       - app-network
 

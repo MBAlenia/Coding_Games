@@ -22,7 +22,6 @@ services:
       - DB_NAME=${MYSQL_DATABASE}
       - JWT_SECRET=${JWT_SECRET}
       - REDIS_HOST=redis
-      - REDIS_PORT=6379
       # Add production-specific environment variables
       - PORT=3001
       # Alenia domain configuration

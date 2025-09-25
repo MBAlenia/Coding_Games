@@ -17,7 +17,6 @@ services:
       - DB_NAME=coding_platform_prod
       - JWT_SECRET=your-super-secure-jwt-secret-change-in-production-2024-prod
       - REDIS_HOST=redis
-      - REDIS_PORT=6379
       - PORT=3001
       # Alenia domain configuration
       - DOMAIN_NAME=codingame.academy.alenia.io
