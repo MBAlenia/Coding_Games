@@ -316,7 +316,7 @@ exports.getMyInvitations = async (req, res) => {
         a.difficulty,
         a.total_points,
         (SELECT COUNT(*) FROM questions WHERE assessment_id = a.id) as question_count
-      FROM candidate_invitations ci
+      FROM invitations ci
       JOIN assessments a ON ci.assessment_id = a.id
       WHERE ci.candidate_id = ?
       ORDER BY ci.invited_at DESC

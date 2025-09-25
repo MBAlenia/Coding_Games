@@ -20,7 +20,6 @@ exports.getCandidateInvitations = async (req, res) => {
         a.duration,
         a.difficulty,
         a.language,
-        a.is_active,
         u.first_name as invited_by_name,
         u.last_name as invited_by_lastname
       FROM invitations i
@@ -75,7 +74,7 @@ exports.getCandidateAssessment = async (req, res) => {
     
     // Get assessment details with questions - simplified access
     const [assessments] = await db.execute(
-      `SELECT a.*, u.username as created_by_name 
+      `SELECT a.*, CONCAT(u.first_name, ' ', u.last_name) as created_by_name 
        FROM assessments a 
        JOIN users u ON a.created_by = u.id 
        WHERE a.id = ?`,

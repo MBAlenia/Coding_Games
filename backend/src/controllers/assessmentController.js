@@ -433,7 +433,7 @@ const getAssessmentResults = async (req, res) => {
 
     const [results] = await db.execute(
       `SELECT ci.candidate_email, ci.candidate_name, ci.status, ci.score, ci.started_at, ci.completed_at
-       FROM candidate_invitations ci
+       FROM invitations ci
        WHERE ci.assessment_id = ?`,
       [id]
     );
@@ -497,7 +497,7 @@ const sendInvitation = async (req, res) => {
     const token = require('crypto').randomBytes(32).toString('hex');
 
     await db.execute(
-      `INSERT INTO candidate_invitations (assessment_id, candidate_email, candidate_name, token, status, created_by) 
+      `INSERT INTO invitations (assessment_id, candidate_email, candidate_name, token, status, created_by) 
        VALUES (?, ?, ?, ?, 'pending', ?)`,
       [id, candidate_email, candidate_name, token, req.user.id]
     );
@@ -538,7 +538,7 @@ const finalizeAssessment = async (req, res) => {
 
     // Update candidate invitation status to completed
     await db.execute(
-      `UPDATE candidate_invitations 
+      `UPDATE invitations 
        SET status = 'completed', completed_at = NOW()
        WHERE assessment_id = ? AND candidate_id = ?`,
       [id, candidateId]
@@ -583,7 +583,7 @@ const finalizeAssessment = async (req, res) => {
 
     // Update candidate invitation with final score
     await db.execute(
-      `UPDATE candidate_invitations 
+      `UPDATE invitations 
        SET score = ?, max_score = ?
        WHERE assessment_id = ? AND candidate_id = ?`,
       [totalScore, maxTotalScore, id, candidateId]

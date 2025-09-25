@@ -40,7 +40,7 @@ async function testAIScoring() {
     // Check if we have test data
     const [testInvitations] = await db.execute(`
       SELECT ci.*, a.title as assessment_title
-      FROM candidate_invitations ci
+      FROM invitations ci
       JOIN assessments a ON ci.assessment_id = a.id
       WHERE ci.status IN ('started', 'completed')
       LIMIT 1

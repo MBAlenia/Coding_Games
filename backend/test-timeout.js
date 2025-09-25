@@ -32,7 +32,7 @@ async function testTimeoutFunctionality() {
           THEN TIMESTAMPDIFF(MINUTE, ci.started_at, NOW())
           ELSE NULL 
         END as minutes_elapsed
-      FROM candidate_invitations ci
+      FROM invitations ci
       JOIN assessments a ON ci.assessment_id = a.id
       WHERE ci.status IN ('started', 'completed')
       ORDER BY ci.candidate_email, ci.started_at DESC
