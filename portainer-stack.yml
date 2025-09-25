@@ -20,8 +20,8 @@ services:
       - REDIS_PORT=6379
       - PORT=3001
       # Alenia domain configuration
-      - DOMAIN_NAME=academy.alenia.io
-      - API_BASE_URL=https://api.academy.alenia.io
+      - DOMAIN_NAME=codingame.academy.alenia.io
+      - API_BASE_URL=https://api.codingame.academy.alenia.io
     networks:
       - app-network
     restart: unless-stopped
@@ -34,7 +34,7 @@ services:
     # Add Traefik labels
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.coding_api.rule=Host(`api.academy.alenia.io`)"
+      - "traefik.http.routers.coding_api.rule=Host(`api.codingame.academy.alenia.io`)"
       - "traefik.http.routers.coding_api.entrypoints=websecure"
       - "traefik.http.routers.coding_api.tls.certresolver=myresolver"
       - "traefik.http.routers.coding_api.service=svc_coding_api"
@@ -55,14 +55,14 @@ services:
       retries: 3
     environment:
       # Alenia domain configuration
-      - REACT_APP_DOMAIN_NAME=academy.alenia.io
-      - REACT_APP_API_BASE_URL=https://api.academy.alenia.io
+      - REACT_APP_DOMAIN_NAME=codingame.academy.alenia.io
+      - REACT_APP_API_BASE_URL=https://api.codingame.academy.alenia.io
       # Add version information
       - REACT_APP_VERSION=1.1.0
     # Add Traefik labels
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.coding_frontend.rule=Host(`academy.alenia.io`)"
+      - "traefik.http.routers.coding_frontend.rule=Host(`codingame.academy.alenia.io`)"
       - "traefik.http.routers.coding_frontend.entrypoints=websecure"
       - "traefik.http.routers.coding_frontend.tls.certresolver=myresolver"
       - "traefik.http.routers.coding_frontend.service=svc_coding_frontend"
@@ -119,7 +119,7 @@ services:
     # Add Traefik labels
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.coding_phpmyadmin.rule=Host(`phpmyadmin.academy.alenia.io`)"
+      - "traefik.http.routers.coding_phpmyadmin.rule=Host(`phpmyadmin.codingame.academy.alenia.io`)"
       - "traefik.http.routers.coding_phpmyadmin.entrypoints=websecure"
       - "traefik.http.routers.coding_phpmyadmin.tls.certresolver=myresolver"
       - "traefik.http.routers.coding_phpmyadmin.service=svc_coding_phpmyadmin"

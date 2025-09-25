@@ -6,7 +6,9 @@ RUN npm ci
 COPY . .
 # Build with environment variables
 ARG REACT_APP_API_URL
+ARG REACT_APP_VERSION
 ENV REACT_APP_API_URL=$REACT_APP_API_URL
+ENV REACT_APP_VERSION=$REACT_APP_VERSION
 RUN npm run build
 
 # production environment
