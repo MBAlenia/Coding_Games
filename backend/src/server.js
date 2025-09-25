@@ -26,7 +26,7 @@ app.use('/api/', limiter);
 // CORS configuration
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? ['https://your-domain.com'] 
+    ? ['https://codingame.academy.alenia.io'] 
     : ['http://localhost:3000', 'http://localhost:8080'],
   credentials: true
 }));

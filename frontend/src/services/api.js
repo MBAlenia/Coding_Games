@@ -91,6 +91,15 @@ export const api = {
     addHistory: (id, data) => axios.post(`/api/candidates/${id}/history`, data)
   },
 
+  // User management endpoints
+  users: {
+    getAll: () => axios.get('/api/users'),
+    getById: (id) => axios.get(`/api/users/${id}`),
+    createRecruiter: (data) => axios.post('/api/users/recruiters', data),
+    update: (id, data) => axios.put(`/api/users/${id}`, data),
+    delete: (id) => axios.delete(`/api/users/${id}`)
+  },
+
   // Dashboard endpoints
   dashboard: {
     getStats: () => axios.get('/api/candidates/dashboard/stats')

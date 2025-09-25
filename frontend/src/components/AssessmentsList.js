@@ -16,7 +16,7 @@ const AssessmentsList = () => {
 
   const fetchAssessments = async () => {
     try {
-      const response = await apiService.get('/assessments');
+      const response = await apiService.get('/api/assessments');
       setAssessments(response.data);
     } catch (error) {
       toast.error('Failed to fetch assessments');
@@ -32,7 +32,7 @@ const AssessmentsList = () => {
     }
 
     try {
-      await apiService.delete(`/assessments/${id}`);
+      await apiService.delete(`/api/assessments/${id}`);
       setAssessments(assessments.filter(a => a.id !== id));
       toast.success('Assessment deleted successfully');
     } catch (error) {

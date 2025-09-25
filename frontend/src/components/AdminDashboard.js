@@ -22,7 +22,7 @@ import {
   Settings
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { apiService as api } from '../services/api';
+import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { CandidateDetailsModal, SendInvitationModal } from './CandidateModals';
 
@@ -80,18 +80,19 @@ const AdminDashboard = () => {
   const fetchStats = async () => {
     try {
       // Fetch basic stats
-      const statsRes = await api.get('/dashboard/stats');
+      const statsRes = await api.dashboard.getStats();
       
       // Fetch additional admin-specific stats
-      const usersRes = await api.get('/users');
-      const invitationsRes = await api.get('/invitations/stats');
+      const usersRes = await api.users.getAll();
+      // Note: We need to implement invitations stats endpoint
       
       setStats({
         ...statsRes.data,
         totalUsers: usersRes.data?.length || 0,
         activeRecruiters: usersRes.data?.filter(u => u.role === 'recruiter').length || 0,
-        pendingInvitations: invitationsRes.data?.pending || 0,
-        completedTests: invitationsRes.data?.completed || 0
+        // pendingInvitations and completedTests will need to be implemented
+        pendingInvitations: 0,
+        completedTests: 0
       });
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -100,7 +101,7 @@ const AdminDashboard = () => {
 
   const fetchCandidates = async () => {
     try {
-      const response = await api.get('/candidates');
+      const response = await api.candidates.getAll();
       setCandidates(response.data || []);
     } catch (error) {
       console.error('Error fetching candidates:', error);
@@ -109,8 +110,8 @@ const AdminDashboard = () => {
 
   const fetchAssessments = async () => {
     try {
-      const response = await api.get('/assessments');
-      setAssessments(response.data?.assessments || []);
+      const response = await api.assessments.getAll();
+      setAssessments(response.data?.assessments || response.data || []);
     } catch (error) {
       console.error('Error fetching assessments:', error);
     }
@@ -118,7 +119,7 @@ const AdminDashboard = () => {
 
   const fetchUsers = async () => {
     try {
-      const response = await api.get('/users');
+      const response = await api.users.getAll();
       setUsers(response.data || []);
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -127,8 +128,14 @@ const AdminDashboard = () => {
 
   const fetchRecentActivity = async () => {
     try {
-      const response = await api.get('/activity/recent');
-      setRecentActivity(response.data || []);
+      // This endpoint doesn't exist in the backend, so we'll provide mock data for now
+      setRecentActivity([
+        { description: "New candidate registered", user: "System", timestamp: "2 hours ago" },
+        { description: "Assessment completed", user: "John Doe", timestamp: "5 hours ago" },
+        { description: "New recruiter added", user: "Admin", timestamp: "1 day ago" },
+        { description: "Assessment created", user: "Jane Smith", timestamp: "2 days ago" },
+        { description: "Candidate invited", user: "Recruiter", timestamp: "3 days ago" }
+      ]);
     } catch (error) {
       console.error('Error fetching recent activity:', error);
     }
@@ -139,7 +146,7 @@ const AdminDashboard = () => {
     setShowCandidateModal(true);
     
     try {
-      const response = await api.get(`/candidates/${candidate.id}/submissions`);
+      const response = await api.candidates.getSubmissions(candidate.id);
       setCandidateSubmissions(response.data || []);
     } catch (error) {
       console.error('Error fetching candidate submissions:', error);
@@ -151,7 +158,7 @@ const AdminDashboard = () => {
     if (!window.confirm('Are you sure you want to delete this user?')) return;
     
     try {
-      await api.delete(`/users/${userId}`);
+      await api.users.delete(userId);
       toast.success('User deleted successfully');
       fetchUsers();
       fetchStats();
